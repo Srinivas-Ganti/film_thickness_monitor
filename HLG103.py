@@ -8,7 +8,9 @@ class HLG1_USB:
                  devnum = 1, baudrate = 115200,
                  timeout = 0.01):
         
-        ## Open the serial port to using DSD USB -RS485 /TTL converter device
+        """
+        Initialize RS485-USB serial com control interface.
+        """
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
@@ -16,23 +18,31 @@ class HLG1_USB:
                                         baudrate = self.baudrate,
                                         timeout = self.timeout)
         self.devnum = devnum
+ 
+    def reset(self):
+        self.HLG1_com(f"%0{self.devnum}#WRS+00001**\r", self.serialport)
+        sleep(0.1)
         
     def set_zero(self):
-        res = self.HLG1_com(f"%0{self.devnum}#WZS+00001**\r", self.serialport)
+        self.res = self.HLG1_com(f"%0{self.devnum}#WZS+00001**\r", self.serialport)
         if res == f"%0{self.devnum}$WZS**":
-            message = "Zero is set"
-            return message
-        
+            print("Zero is set")
+            
     def laser_on(self):
-        self.HLG1_com(f"%0{self.devnum}#WLR+00001**\r", self.serialport)
+        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00001**\r", self.serialport)
+        if self.lr == '%01$WLR**\r':
+            print("Laser on")
+        else:
+            print("error:", self.lr)            
         sleep(0.1)
         
     def laser_off(self):
-        self.HLG1_com(f"%0{self.devnum}#WLR+00000**\r", self.serialport)
-        sleep(0.1)
+        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00000**\r", self.serialport)
+        if self.lr == '%01$WLR**\r':
+            print("Laser off")
+        else:
+            print("error: ", self.lr)
         
-    def reset(self):
-        self.HLG1_com(f"%0{self.devnum}#WRS+00001**\r", self.serialport)
         sleep(0.1)
         
     def read_samplr(self):
@@ -41,8 +51,8 @@ class HLG1_USB:
                        '%01$RSP+00002**\r':"1 ms",
                        '%01$RSP+00003**\r':"2 ms"
                        }
-        self.res = self.HLG1_com(f"%0{self.devnum}#RSP**\r", self.serialport)
-        print("Sampling at : ", rsamplr_dict[self.res])
+        self.sampr = self.HLG1_com(f"%0{self.devnum}#RSP**\r", self.serialport)
+        print("Sampling at : ", rsamplr_dict[self.sampr])
         
     def set_samplr(self, cycle):
         wsamplr_dict = {"200 us": f"%0{self.devnum}#WSP+00000**\r",
@@ -51,7 +61,7 @@ class HLG1_USB:
                         "2 ms": f"%0{self.devnum}#WSP+00003**\r"
                        }
         
-        self.res = self.HLG1_com(wsamplr_dict[cycle], self.serialport)      
+        self.sampr = self.HLG1_com(wsamplr_dict[cycle], self.serialport)      
 
     def read_avgset(self):
         ravg_dict = {f"%0{self.devnum}$RAV+00000**\r": "Once",
@@ -61,8 +71,8 @@ class HLG1_USB:
                      f"%0{self.devnum}$RAV+00004**\r": "256",
                      f"%0{self.devnum}$RAV+00005**\r": "1024"
                      }
-        self.res = self.HLG1_com(f"%0{self.devnum}#RAV**\r", self.serialport)        
-        return ravg_dict[self.res]
+        self.avg = self.HLG1_com(f"%0{self.devnum}#RAV**\r", self.serialport)        
+        return ravg_dict[self.avg]
         
     def write_avgset(self,avg):
         wavg_dict = {"Once": f"%0{self.devnum}#WAV+00000**\r",
@@ -74,30 +84,44 @@ class HLG1_USB:
                      }
         self.res = self.HLG1_com(wavg_dict[avg], self.serialport)
         print("Averaging set to", self.read_avgset())
-        #print(self.res)
-        
+
+    def read_measurement(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RMD**\r", self.serialport)
+        if 'RMD' in self.res:
+            print(f"Measurement received ({self.read_avgset()} avgs):")
+            r = self.res
+            print(r.split("RMD")[1].split("**")[0][
+                :-1]+'.'+r.split("RMD")[
+                    1].split("**")[0][-1] + " um")
+            
+    def read_all(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RMB**\r", self.serialport)
+        if 'RMB' in self.res:
+            print(f"Measurements received ({self.read_avgset()} avgs):")
+            r = self.res
+            print("distance: ", r.split("RMB")[1].split("**")[0][:8],"\n",
+                  "Intensity: ", r.split("RMB")[1].split("**")[0][8:12],"\n",
+                  "Output 1: ", r.split("RMB")[1].split("**")[0][12:13],"\n",
+                  "Output 2: ", r.split("RMB")[1].split("**")[0][13:14],"\n",
+                  "Output 3: ", r.split("RMB")[1].split("**")[0][14:15], "\n",
+                  "Alarm: ", r.split("RMB")[1].split("**")[0][15:16], "\n")
+            
+    def save_settings(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#WWR+00001**\r", self.serialport)
+        if self.res == f"%0{self.devnum}$WWR**\r":
+            print("Settings saved")
+        else:
+            print("error: ", self.res)
+                    
+                                      
+                  
     def HLG1_com(self, wrdata,  serialport):
         """
 
 
 
-        ########## Read current measurement value on sensor 01
 
-        >>> wrdata = "%01#RMD**\r"
 
-        ########## Reading all “logic” outputs of judgment output
-        selection for sensor 01 in the RS-422 handshake
-        mode or the RS-485 multi-mode
-
-        >>> wrdata = "%01#RMB**\r"
-
-        ########## Set zero - distance
-
-        >>> wrdata = "%01#WZS+00001**\r"
-
-        ########## Save settings
-
-        >>>  wrdata = "%01#WWR+00001**\r"
 
         ########## Set/ Read buffering mode
 
