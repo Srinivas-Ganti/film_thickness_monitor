@@ -1,59 +1,85 @@
 import serial
 import RPi.GPIO as GPIO
 from time import sleep
-
+#@{}
 
 class HLG1_USB:        
-    def __init__(self, port = "/dev/ttyUSB0", devnum = 1, baudrate = 115200, timeout = 0.01):
+    def __init__(self, port = "/dev/ttyUSB0",
+                 devnum = 1, baudrate = 115200,
+                 timeout = 0.01):
+        
         ## Open the serial port to using DSD USB -RS485 /TTL converter device
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
-        self.serialport = serial.Serial(self.port, baudrate = self.baudrate, timeout = self.timeout)
+        self.serialport = serial.Serial(self.port,
+                                        baudrate = self.baudrate,
+                                        timeout = self.timeout)
         self.devnum = devnum
-            
+        
     def set_zero(self):
         res = self.HLG1_com(f"%0{self.devnum}#WZS+00001**\r", self.serialport)
         if res == f"%0{self.devnum}$WZS**":
             message = "Zero is set"
             return message
+        
     def laser_on(self):
         self.HLG1_com(f"%0{self.devnum}#WLR+00001**\r", self.serialport)
         sleep(0.1)
+        
     def laser_off(self):
         self.HLG1_com(f"%0{self.devnum}#WLR+00000**\r", self.serialport)
         sleep(0.1)
+        
     def reset(self):
         self.HLG1_com(f"%0{self.devnum}#WRS+00001**\r", self.serialport)
         sleep(0.1)
         
-        # Class methods        
-           
+    def read_samplr(self):
+        rsamplr_dict = {'%01$RSP+00000**\r':"200 us",
+                       '%01$RSP+00001**\r':"500 us",
+                       '%01$RSP+00002**\r':"1 ms",
+                       '%01$RSP+00003**\r':"2 ms"
+                       }
+        self.res = self.HLG1_com(f"%0{self.devnum}#RSP**\r", self.serialport)
+        print("Sampling at : ", rsamplr_dict[self.res])
+        
+    def set_samplr(self, cycle):
+        wsamplr_dict = {"200 us": f"%0{self.devnum}#WSP+00000**\r",
+                        "500 us": f"%0{self.devnum}#WSP+00001**\r",
+                        "1 ms": "f%0{self.devnum}#WSP+00002**\r",
+                        "2 ms": f"%0{self.devnum}#WSP+00003**\r"
+                       }
+        
+        self.res = self.HLG1_com(wsamplr_dict[cycle], self.serialport)      
+
+    def read_avgset(self):
+        ravg_dict = {f"%0{self.devnum}$RAV+00000**\r": "Once",
+                     f"%0{self.devnum}$RAV+00001**\r": "4",
+                     f"%0{self.devnum}$RAV+00002**\r": "16",
+                     f"%0{self.devnum}$RAV+00003**\r": "64",
+                     f"%0{self.devnum}$RAV+00004**\r": "256",
+                     f"%0{self.devnum}$RAV+00005**\r": "1024"
+                     }
+        self.res = self.HLG1_com(f"%0{self.devnum}#RAV**\r", self.serialport)        
+        return ravg_dict[self.res]
+        
+    def write_avgset(self,avg):
+        wavg_dict = {"Once": f"%0{self.devnum}#WAV+00000**\r",
+                     "4" : f"%0{self.devnum}#WAV+00001**\r",
+                     "16" : f"%0{self.devnum}#WAV+00002**\r",
+                     "64" : f"%0{self.devnum}#WAV+00003**\r",
+                     "256" : f"%0{self.devnum}#WAV+00004**\r",
+                     "1024": f"%0{self.devnum}#WAV+00005**\r"
+                     }
+        self.res = self.HLG1_com(wavg_dict[avg], self.serialport)
+        print("Averaging set to", self.read_avgset())
+        #print(self.res)
+        
     def HLG1_com(self, wrdata,  serialport):
         """
-        ########## Reset the sensor head
-         
-        >>>  wrdata = "%01#WRS+00001**\r"
-
-        ########## Turn off laser
-
-        >>> wrdata = "%01#WLR+00000**\r"
-
-        ########## Turn on laser
-
-        >>> wrdata = "%01#WLR+00001**\r"
 
 
-        ########## Read/Set the sampling rate of sensor 01 (HLG103 S-J)
-
-        >>> wrdata = "%01#RSP**\r"
-        >>> wrdata = "%01#WSP00000\r"
-
-
-        ########## Set/Read the sample averaging on sensor 01
-
-        >>> wrdata = "%01#WAV+00004**\r"
-        >>> wrdata = "%01#RAV**\r"
 
         ########## Read current measurement value on sensor 01
 
@@ -156,4 +182,4 @@ class HLG1_USB:
                 print("No response")
 
 
-# response = HLG1_com(port , "%01#RLA0000103000**\r")
+hlg1 = HLG1_USB()
