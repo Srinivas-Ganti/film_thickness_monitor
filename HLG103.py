@@ -1,6 +1,7 @@
 import serial
 import RPi.GPIO as GPIO
 from time import sleep
+import numpy as np
 #@{}
 
 class HLG1_USB:        
@@ -18,6 +19,11 @@ class HLG1_USB:
                                         baudrate = self.baudrate,
                                         timeout = self.timeout)
         self.devnum = devnum
+        self.trcondict = {"+00000" : "At timing input ON",
+                          "+00001" : "At or higher than threshold",
+                          "+00002" : "Lower than threshold",
+                          "+00003" : "At alarm occured",
+                          "+00004" : "At alarm released"}
  
     def reset(self):
         self.HLG1_com(f"%0{self.devnum}#WRS+00001**\r", self.serialport)
@@ -177,7 +183,6 @@ class HLG1_USB:
                    "+00001":" Start",
                       "start": "+00001",
                       "stop": "+00000"
-                      
                    } 
         if set_go == None:
             self.res = self.HLG1_com(f"%0{self.devnum}#RBS**\r", self.serialport)
@@ -201,13 +206,55 @@ class HLG1_USB:
         self.res = self.HLG1_com(f"%0{self.devnum}#RLA{head}{end}**\r", self.serialport)
         if "RLA" in self.res:
             r = self.res
+            raw = r.split("RLA")[1].split("**")[0]
             print("Accumulated data : \n",
-                  r.split("RLA")[1].split("**")[0])
+                  raw)
+            if "-" in raw or "+" in raw:
+                raw_p = r.split("RLA")[1].split("**")[0].split("-")[0].split("+")[1:]
+                raw_p = np.array([float(i) for i in raw_p])
+                return raw_p   
         else:
             print("error: ", self.res)
+            return None
+        
+    def readTriggerCond(self):
 
-         
-                                         
+        self.res = self.HLG1_com(f"%0{self.devnum}#RTR**\r", self.serialport)
+        if "RTR" in self.res:
+            r = self.res
+            raw = r.split("RTR")[1].split("**")[0]
+            print("Trigger condition : ",
+                  self.trcondict[raw])                                 
+        else:
+            print("error: ", self.res)
+            return None
+
+    def setTriggerCond(self, trig_cond):
+        wtrcondict = {"0":"+00000",
+                     "1":"+00001",
+                     "2":"+00002",
+                     "3":"+00003",
+                     "4":"+00004" }
+        self.res = self.HLG1_com(f"%0{self.devnum}#WTR{wtrcondict[trig_cond]}**\r", self.serialport)
+        if "WTR" in self.res:
+            r = self.res
+            raw = r.split("WTR")[1].split("**")[0]
+            print("Trigger condition set: ",
+                  self.trcondict[wtrcondict[trig_cond]])                                 
+        else:
+            print("error: ", self.res)
+            return None
+        
+    def readThreshold(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RBL**\r", self.serialport)
+        if "RBL" in self.res:
+            r = self.res
+            raw = r.split("RBL")[1].split("**")[0]
+            print("Trigger threshold:",
+                  raw)                                 
+        else:
+            print("error: ", self.res)
+            return None
                                          
     def HLG1_com(self, wrdata,  serialport):
         """
@@ -225,16 +272,7 @@ class HLG1_USB:
         >>> wrdata = "%01#RTL**\r"
         >>> wrdata = "%01#WTL**\r"
 
-        ########## Read/ Write trigger conditions
 
-        >>> wrdata = "%01#RTR**\r"
-        >>> wrdata = "%01#WTR+00001**\r"
-
-        +00000 - At timing input ON
-        +00001 - At or higher than threshold
-        +00002 - Lower than threshold
-        +00003 - At alarm occured
-        +00004 - At alarm released
 
         ########## Set threshold for Trigger
 
@@ -248,12 +286,6 @@ class HLG1_USB:
 
 
 
-
-        ########## Data read (Normal)
-        from head - tail buffer memory
-        00001 to 03000
-
-        >>> wrdata = "%01#RLA0000103000**\r")
 
         """
         serialport.write(wrdata.encode())
