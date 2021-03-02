@@ -42,7 +42,6 @@ class HLG1_USB:
             print("Laser off")
         else:
             print("error: ", self.lr)
-        
         sleep(0.1)
         
     def read_samplr(self):
@@ -112,28 +111,53 @@ class HLG1_USB:
             print("Settings saved")
         else:
             print("error: ", self.res)
-                    
+            
+    def set_bufferMode(self, mode):
+        bmodict = {"cont": f"%0{self.devnum}#WBD+00000**\r",
+                   "trig" : f"%0{self.devnum}#WBD+00001**\r"
+                   } 
+        self.res = self.HLG1_com(bmodict[mode], self.serialport)
+        if self.res == f"%0{self.devnum}$WBD**\r":
+            print("Buffering mode set - ", mode)
+        else:
+            print("error: ", self.res)
+
+    def read_bufferMode(self):
+        rbmodict = {f"%0{self.devnum}$RBD+00000**\r":"cont",
+                   f"%0{self.devnum}$RBD+00001**\r":"trig"
+                   } 
+        self.res = self.HLG1_com(f"%0{self.devnum}#RBD**\r", self.serialport)
+        if "RBD" in self.res:
+            print(f"Buffering mode is - {rbmodict[self.res]}")
+        else:
+            print("error: ", self.res)
+            
+    def set_bufferRate(self,num_every_65535):
+        """Select from 1 (all measurement data), 1/2, 1/4, etc. to 1/65535.
+           The buffering rate is set to “1/10” by default.
+           If 1/4 is selected for example, measurement data will
+           be accumulated once every four sampling cycles."""
+           
+        self.res = self.HLG1_com(f"%0{self.devnum}#WBR+0000{num_every_65535}**\r", self.serialport)
+
+        if "WBR" in self.res:
+            r = self.res
+            self.read_bufferRate()
+        else:
+            print("error: ", self.res)            
                                       
-                  
+    def read_bufferRate(self):  
+        self.res = self.HLG1_com(f"%0{self.devnum}#RBR**\r", self.serialport)
+        if "RBR" in self.res:
+            r = self.res
+            print("Buffering rate is : ",
+                  r.split("RBR")[1].split("**")[0], "/65535")
+        else:
+            print("error: ", self.res)            
+                                         
+                                         
     def HLG1_com(self, wrdata,  serialport):
         """
-
-
-
-
-
-
-        ########## Set/ Read buffering mode
-
-        +00000 for continuous +00001 for trigger
-
-        >>> wrdata = "%01#WBD+00000**\r"
-        >>> wrdata = "%01#RBD+00000**\r"
-
-        ########## Read buffering rate
-
-        >>> wrdata = "%01#RBR**\r"
-
         ########## Read/ Write accumulated amount (+00001 to +03000)
 
         >>> wrdata = "%01#RBC**\r"
