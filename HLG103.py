@@ -153,7 +153,60 @@ class HLG1_USB:
             print("Buffering rate is : ",
                   r.split("RBR")[1].split("**")[0], "/65535")
         else:
-            print("error: ", self.res)            
+            print("error: ", self.res)
+
+                                      
+    def read_bufferStatus(self):
+        bstdict = {"+00000":"Not Buffering",
+                   "+00001":" Waiting for trigger",
+                   "+00002":"Accumulating",
+                   "+00003":"Accumulation completed",       
+                   } 
+        self.res = self.HLG1_com(f"%0{self.devnum}#RTS**\r", self.serialport)
+        if "RTS" in self.res:
+            
+            r = self.res
+            status = r.split("RTS")[1].split("**")[0]
+            print("Buffering Status :", bstdict[status])   
+        else:
+            print("error: ", self.res)
+
+    def bufferReady(self, set_go = None):
+        
+        bufRdydict = {"+00000":"Stop",
+                   "+00001":" Start",
+                      "start": "+00001",
+                      "stop": "+00000"
+                      
+                   } 
+        if set_go == None:
+            self.res = self.HLG1_com(f"%0{self.devnum}#RBS**\r", self.serialport)
+        elif (set_go == "Start") or (set_go == "start")or (set_go == "START")  :
+            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['start']}**\r", self.serialport)
+        elif (set_go == "Stop") or (set_go == "stop")or (set_go == "STOP")  :
+            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['stop']}**\r", self.serialport)            
+        if "RBS" in self.res:
+            r = self.res
+            status = r.split("RBS")[1].split("**")[0]
+            print("Buffer state :", bufRdydict[status])
+        elif "WBS" in self.res:
+            r = self.res
+            status = r.split("WBS")[0]
+            print("Buffer action :", set_go)
+            
+        else:
+            print("error: ", self.res)
+            
+    def DataReadNormal(self, head = "00001", end = "03000"):  
+        self.res = self.HLG1_com(f"%0{self.devnum}#RLA{head}{end}**\r", self.serialport)
+        if "RLA" in self.res:
+            r = self.res
+            print("Accumulated data : \n",
+                  r.split("RLA")[1].split("**")[0])
+        else:
+            print("error: ", self.res)
+
+         
                                          
                                          
     def HLG1_com(self, wrdata,  serialport):
@@ -191,21 +244,9 @@ class HLG1_USB:
         >>> wrdata = "%01WBL-000208**\r"
         >>> wrdata = "%01RBL**\r"
 
-        ########## Buffering Operation - Read/ Write status
-        stop +00000
-        start +00001
 
-        >>> wrdata = "%01#WBS+00001**\r"
-        >>> wrdata = "%01#RBS**\r"
 
-        ########## Buffering status readout
 
-        >>> wrdata = "%01#RTS**\r"
-
-        +00000 - Not buffering
-        +00001 - Waiting for trigger
-        +00002 - Accumulating
-        +00003 - Accumulation completed
 
 
         ########## Data read (Normal)
@@ -213,8 +254,6 @@ class HLG1_USB:
         00001 to 03000
 
         >>> wrdata = "%01#RLA0000103000**\r")
-
-
 
         """
         serialport.write(wrdata.encode())
