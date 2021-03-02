@@ -2,7 +2,6 @@ import serial
 import RPi.GPIO as GPIO
 from time import sleep
 import numpy as np
-#@{}
 
 class HLG1_USB:        
     def __init__(self, port = "/dev/ttyUSB0",
@@ -23,12 +22,13 @@ class HLG1_USB:
                           "+00001" : "At or higher than threshold",
                           "+00002" : "Lower than threshold",
                           "+00003" : "At alarm occured",
-                          "+00004" : "At alarm released"}
+                          "+00004" : "At alarm released"
+                          }
         self.outsta_dict = {"+00000":"OFF",
                        "+00001":"ON",
                        }
         self.error_dict = {"01" :"""Command error.\n
-                                  - The command is undefined.""",
+                                  - The command is undefined. Check value format""",
                            "02" : """Address error.\n
                                      - The start address is larger than the end address or the address is larger
                                      than 999999 when the RDD or WDD command is executed.\n
@@ -60,8 +60,9 @@ class HLG1_USB:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)                    
-        sleep(0.1)        
+        sleep(0.1)
         
+################ READ OUTPUTS        
 
     def read_alarm(self):
         alrsta_dict = {"+00000":"OFF",
@@ -77,7 +78,6 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
-        
       
     def read_out1(self):
         self.res = self.HLG1_com(f"%0{self.devnum}#RZA**\r", self.serialport)
@@ -111,7 +111,39 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)        
-                      
+ 
+ ################ MEASUREMENT SETTINGS
+        
+    def read_zeroSetAmt(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RZV**\r", self.serialport)
+        if "RZV" in self.res:
+            print(self.res)
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
+        
+    def read_span(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RMK**\r", self.serialport)
+        if "RMK" in self.res:
+            print(self.res)
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
+        
+    def set_span(self, span = "+10000"):
+        self.res = self.HLG1_com(f"%0{self.devnum}#WMK{span}**\r", self.serialport)
+        if "WMK" in self.res:
+            print(self.res)
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)        
+        
     def set_zero(self):
         self.res = self.HLG1_com(f"%0{self.devnum}#WZS+00001**\r", self.serialport)
         if self.res == f"%0{self.devnum}$WZS**\r":
@@ -120,28 +152,8 @@ class HLG1_USB:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
-        sleep(0.1)            
-            
-    def laser_on(self):
-        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00001**\r", self.serialport)
-        if self.lr == '%01$WLR**\r':
-            print("Laser on")
-        else:
-            errc = self.lr.split("!")[0].split("%")[1]
-            ermsg = self.error_dict[errc]
-            print("Traceback: ", ermsg)        
         sleep(0.1)
-        
-    def laser_off(self):
-        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00000**\r", self.serialport)
-        if self.lr == '%01$WLR**\r':
-            print("Laser off")
-        else:
-            errc = self.lr.split("!")[0].split("%")[1]
-            ermsg = self.error_dict[errc]
-            print("Traceback: ", ermsg)        
-        sleep(0.1)
-        
+    
     def read_samplr(self):
         rsamplr_dict = {'%01$RSP+00000**\r':"200 us",
                        '%01$RSP+00001**\r':"500 us",
@@ -181,7 +193,48 @@ class HLG1_USB:
                      }
         self.res = self.HLG1_com(wavg_dict[avg], self.serialport)
         print("Averaging set to", self.read_avgset())
+            
+################ LASER CONTROL
+        
+    def laser_on(self):
+        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00001**\r", self.serialport)
+        if self.lr == f"%0{self.devnum}$WLR**\r":
+            print("Laser on")
+        else:
+            errc = self.lr.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
+        
+    def laser_off(self):
+        self.lr = self.HLG1_com(f"%0{self.devnum}#WLR+00000**\r", self.serialport)
+        if self.lr == f"%0{self.devnum}$WLR**\r":
+            print("Laser off")
+        else:
+            errc = self.lr.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
 
+################ DATA ACQUISITION
+            
+    def DataReadNormal(self, head = "00001", end = "03000"):  
+        self.res = self.HLG1_com(f"%0{self.devnum}#RLA{head}{end}**\r", self.serialport)
+        if "RLA" in self.res:
+            r = self.res
+            raw = r.split("RLA")[1].split("**")[0]
+            print("Accumulated data : \n",
+                  raw)
+            if "-" in raw or "+" in raw:
+                raw_p = r.split("RLA")[1].split("**")[0].split("-")[0].split("+")[1:]
+                raw_p = np.array([float(i) for i in raw_p])
+                return raw_p   
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)        
+        
     def read_measurement(self):
         self.res = self.HLG1_com(f"%0{self.devnum}#RMD**\r", self.serialport)
         if 'RMD' in self.res:
@@ -211,8 +264,10 @@ class HLG1_USB:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
-        sleep(0.1)            
-            
+        sleep(0.1)
+        
+################ BUFFER CONTROL, SETTINGS
+
     def save_settings(self):
         self.res = self.HLG1_com(f"%0{self.devnum}#WWR+00001**\r", self.serialport)
         if self.res == f"%0{self.devnum}$WWR**\r":
@@ -221,8 +276,36 @@ class HLG1_USB:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
+        sleep(0.1)   
+
+    def readAccAmt(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RBC**\r",
+                                 self.serialport)
+        if "RBC" in self.res:
+            r = self.res
+            raw = r.split("RBC")[1].split("**")[0]
+            print("Read Accumulation amount :",
+                  raw)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
         sleep(0.1)
-            
+        
+    def setAccAmt(self, val = "+03000"):
+        self.res = self.HLG1_com(f"%0{self.devnum}#WBC{val}**\r",
+                                 self.serialport)
+        if "WBC" in self.res:
+            r = self.res
+            raw = r.split("WBC")[1].split("**")[0]
+            print("Set Accumulation amount :",
+                  val)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)                                                                                        
+                                                  
     def set_bufferMode(self, mode):
         bmodict = {"cont": f"%0{self.devnum}#WBD+00000**\r",
                    "trig" : f"%0{self.devnum}#WBD+00001**\r"
@@ -236,7 +319,6 @@ class HLG1_USB:
             print("Traceback: ", ermsg)        
         sleep(0.1)
         
-
     def read_bufferMode(self):
         rbmodict = {f"%0{self.devnum}$RBD+00000**\r":"cont",
                    f"%0{self.devnum}$RBD+00001**\r":"trig"
@@ -256,8 +338,8 @@ class HLG1_USB:
            If 1/4 is selected for example, measurement data will
            be accumulated once every four sampling cycles."""
            
-        self.res = self.HLG1_com(f"%0{self.devnum}#WBR+0000{num_every_65535}**\r", self.serialport)
-
+        self.res = self.HLG1_com(f"%0{self.devnum}#WBR+0000{num_every_65535}**\r",
+                                 self.serialport)
         if "WBR" in self.res:
             r = self.res
             self.read_bufferRate()
@@ -278,7 +360,6 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
-
                                       
     def read_bufferStatus(self):
         bstdict = {"+00000":"Not Buffering",
@@ -308,9 +389,11 @@ class HLG1_USB:
         if set_go == None:
             self.res = self.HLG1_com(f"%0{self.devnum}#RBS**\r", self.serialport)
         elif (set_go == "Start") or (set_go == "start")or (set_go == "START")  :
-            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['start']}**\r", self.serialport)
+            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['start']}**\r",
+                                     self.serialport)
         elif (set_go == "Stop") or (set_go == "stop")or (set_go == "STOP")  :
-            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['stop']}**\r", self.serialport)            
+            self.res = self.HLG1_com(f"%0{self.devnum}#WBS{bufRdydict['stop']}**\r",
+                                     self.serialport)            
         if "RBS" in self.res:
             r = self.res
             status = r.split("RBS")[1].split("**")[0]
@@ -324,23 +407,11 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
-            
-    def DataReadNormal(self, head = "00001", end = "03000"):  
-        self.res = self.HLG1_com(f"%0{self.devnum}#RLA{head}{end}**\r", self.serialport)
-        if "RLA" in self.res:
-            r = self.res
-            raw = r.split("RLA")[1].split("**")[0]
-            print("Accumulated data : \n",
-                  raw)
-            if "-" in raw or "+" in raw:
-                raw_p = r.split("RLA")[1].split("**")[0].split("-")[0].split("+")[1:]
-                raw_p = np.array([float(i) for i in raw_p])
-                return raw_p   
-        else:
-            errc = self.res.split("!")[0].split("%")[1]
-            ermsg = self.error_dict[errc]
-            print("Traceback: ", ermsg)        
-        sleep(0.1)
+        
+
+################ TRIGGER CONTROL
+
+        
     def readTriggerCond(self):
 
         self.res = self.HLG1_com(f"%0{self.devnum}#RTR**\r", self.serialport)
@@ -361,7 +432,8 @@ class HLG1_USB:
                      "2":"+00002",
                      "3":"+00003",
                      "4":"+00004" }
-        self.res = self.HLG1_com(f"%0{self.devnum}#WTR{wtrcondict[trig_cond]}**\r", self.serialport)
+        self.res = self.HLG1_com(f"%0{self.devnum}#WTR{wtrcondict[trig_cond]}**\r",
+                                 self.serialport)
         if "WTR" in self.res:
             r = self.res
             raw = r.split("WTR")[1].split("**")[0]
@@ -387,7 +459,8 @@ class HLG1_USB:
         sleep(0.1)
         
     def setThreshold(self, threshold = "-0000110"):
-        self.res = self.HLG1_com(f"%0{self.devnum}#WBL{threshold}**\r", self.serialport)
+        self.res = self.HLG1_com(f"%0{self.devnum}#WBL{threshold}**\r",
+                                 self.serialport)
         if "WBL" in self.res:
             r = self.res
             raw = r.split("WBL")[1].split("**")[0]
@@ -396,37 +469,67 @@ class HLG1_USB:
         else:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg,"""\n Enter value between-9500000 to
+        +9500000 (-950.0000 to 950.0000 [mm])""")        
+        sleep(0.1)
+
+    def readTriggerPoint(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RTP**\r",
+                                 self.serialport)
+        if "RTP" in self.res:
+            r = self.res
+            raw = r.split("RTP")[1].split("**")[0]
+            print("Read Trigger point :",
+                  raw)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
-               
-                                         
+        
+    def setTriggerPoint(self, val = "+00001"):
+        self.res = self.HLG1_com(f"%0{self.devnum}#WTP{val}**\r",
+                                 self.serialport)
+        if "WTP" in self.res:
+            r = self.res
+            raw = r.split("WTP")[1].split("**")[0]
+            print("Set Trigger point :",
+                  val)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
+        
+    def readTriggerDelay(self):
+        self.res = self.HLG1_com(f"%0{self.devnum}#RTL**\r",
+                                 self.serialport)
+        if "RTL" in self.res:
+            r = self.res
+            raw = r.split("RTL")[1].split("**")[0]
+            print("Read Trigger delay :",
+                  raw)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
+        
+    def setTriggerDelay(self, val = "+00100"):
+        self.res = self.HLG1_com(f"%0{self.devnum}#WTP{val}**\r",
+                                 self.serialport)
+        if "WTP" in self.res:
+            r = self.res
+            raw = r.split("WTP")[1].split("**")[0]
+            print("Set Trigger delay :",
+                  val)                                 
+        else:
+            errc = self.res.split("!")[0].split("%")[1]
+            ermsg = self.error_dict[errc]
+            print("Traceback: ", ermsg)        
+        sleep(0.1)
     def HLG1_com(self, wrdata,  serialport):
-        """
-        ########## Read/ Write accumulated amount (+00001 to +03000)
 
-        >>> wrdata = "%01#RBC**\r"
-        >>> wrdata = "%01#WBC+03000**\r"
-
-        ########## Read/ Write Trigger point (+00001 to +03000)
-
-        >>> wrdata = "%01#RTP**\r"
-        >>> wrdata = "%01#WTP**\r"
-
-        ########## Read/ Write Trigger delay (+00000 to +65535)
-        >>> wrdata = "%01#RTL**\r"
-        >>> wrdata = "%01#WTL**\r"
-
-
-
-        ########## Set threshold for Trigger
-
-        -9500000 to
-        +9500000 (-950.0000 to 950.0000 [mm])
-
-        >>> wrdata = "%01WBL-000208**\r"
-        >>> wrdata = "%01RBL**\r"
-
-        """
         serialport.write(wrdata.encode())
         received_data = serialport.readline()
         if received_data:
@@ -439,7 +542,9 @@ class HLG1_USB:
             except:
                 print("No response")
 
-#     def scan(self):
-#         
 
-hlg1 = HLG1_USB()
+"""
+To try out functions instantiate the class below and use the IDE/ TERMINAL console
+"""
+# Uncomment line below for tests
+# hlg1 = HLG1_USB()
