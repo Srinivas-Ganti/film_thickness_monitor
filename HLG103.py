@@ -240,14 +240,17 @@ class HLG1_USB:
         if 'RMD' in self.res:
             print(f"Measurement received ({self.read_avgset()} avgs):")
             r = self.res
-            print(r.split("RMD")[1].split("**")[0][
+            raw = r.split("RMD")[1].split("**")[0][
                 :-1]+'.'+r.split("RMD")[
-                    1].split("**")[0][-1] + " um")
+                    1].split("**")[0][-1]
+            print(raw + " um")
+            return raw
         else:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
-            print("Traceback: ", ermsg)        
-        sleep(0.1)            
+            print("Traceback: ", ermsg)
+            return None
+                  
             
     def read_all_outputs(self):
         self.res = self.HLG1_com(f"%0{self.devnum}#RMB**\r", self.serialport)
@@ -528,6 +531,7 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
+        
     def HLG1_com(self, wrdata,  serialport):
 
         serialport.write(wrdata.encode())
