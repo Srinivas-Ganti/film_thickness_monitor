@@ -33,8 +33,8 @@ def animate(i, xs, ys):
     ys.append(measurement)
     
     # Limit x and y lists to 20 items
-    xs = xs[-100:-1]
-    ys = ys[-100:-1]
+    xs = xs[-1000:-1]
+    ys = ys[-1000:-1]
 
     # Draw x and y lists
     ax.clear()

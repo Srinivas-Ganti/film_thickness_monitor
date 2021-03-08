@@ -1,10 +1,9 @@
 import serial
-import RPi.GPIO as GPIO
 from time import sleep
 import numpy as np
-
+#port = "/dev/ttyUSB0"
 class HLG1_USB:        
-    def __init__(self, port = "/dev/ttyUSB0",
+    def __init__(self, port = "COM3",
                  devnum = 1, baudrate = 115200,
                  timeout = 0.01):
         
@@ -257,6 +256,13 @@ class HLG1_USB:
         if 'RMB' in self.res:
             print(f"Measurements received ({self.read_avgset()} avgs):")
             r = self.res
+            res_dict = {"distance":  float(f"""{r.split("RMB")[1].split("**")[0][:8]}"""),
+                  "Intensity": float(f"""{r.split("RMB")[1].split("**")[0][8:12]}"""),
+                  "Output 1": int(f"""{r.split("RMB")[1].split("**")[0][12:13]}"""),
+                  "Output 2": int(f"""{r.split("RMB")[1].split("**")[0][13:14]}"""),
+                  "Output 3":  int(f"""{r.split("RMB")[1].split("**")[0][14:15]}"""),
+                  "Alarm": int(f"""{r.split("RMB")[1].split("**")[0][15:16]}""")
+                  }
             print("distance: ", r.split("RMB")[1].split("**")[0][:8],"\n",
                   "Intensity: ", r.split("RMB")[1].split("**")[0][8:12],"\n",
                   "Output 1: ", r.split("RMB")[1].split("**")[0][12:13],"\n",
@@ -268,7 +274,7 @@ class HLG1_USB:
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
         sleep(0.1)
-        
+        return res_dict
 ################ BUFFER CONTROL, SETTINGS
 
     def save_settings(self):
@@ -307,7 +313,8 @@ class HLG1_USB:
             errc = self.res.split("!")[0].split("%")[1]
             ermsg = self.error_dict[errc]
             print("Traceback: ", ermsg)        
-        sleep(0.1)                                                                                        
+        sleep(0.1)
+        return raw                                                                                        
                                                   
     def set_bufferMode(self, mode):
         bmodict = {"cont": f"%0{self.devnum}#WBD+00000**\r",
