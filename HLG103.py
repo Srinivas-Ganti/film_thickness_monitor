@@ -3,7 +3,7 @@ from time import sleep
 import numpy as np
 #port = "/dev/ttyUSB0"
 class HLG1_USB:        
-    def __init__(self, port = "COM3",
+    def __init__(self, port = "/dev/ttyUSB0",
                  devnum = 1, baudrate = 115200,
                  timeout = 0.01):
         
@@ -256,7 +256,7 @@ class HLG1_USB:
         if 'RMB' in self.res:
             print(f"Measurements received ({self.read_avgset()} avgs):")
             r = self.res
-            res_dict = {"distance":  float(f"""{r.split("RMB")[1].split("**")[0][:8]}"""),
+            res_dict = {"distance":  float(f"""{r.split("RMB")[1].split("**")[0][:8]}""")/1000,
                   "Intensity": float(f"""{r.split("RMB")[1].split("**")[0][8:12]}"""),
                   "Output 1": int(f"""{r.split("RMB")[1].split("**")[0][12:13]}"""),
                   "Output 2": int(f"""{r.split("RMB")[1].split("**")[0][13:14]}"""),
